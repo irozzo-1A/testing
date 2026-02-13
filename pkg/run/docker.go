@@ -29,8 +29,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -51,8 +51,8 @@ type dockerRunner struct {
 }
 
 // NewDockerRunner returns a runner that runs a container image with Docker
-func NewDockerRunner(image, entrypoint string, options *DockerRunnerOptions) (Runner, error) {
-	res := &dockerRunner{image: image, entrypoint: entrypoint}
+func NewDockerRunner(img, entrypoint string, options *DockerRunnerOptions) (Runner, error) {
+	res := &dockerRunner{image: img, entrypoint: entrypoint}
 	if options != nil {
 		res.options = *options
 	}
@@ -60,7 +60,7 @@ func NewDockerRunner(image, entrypoint string, options *DockerRunnerOptions) (Ru
 	// attempt pulling the image
 	err := res.withClient(context.Background(), func(cli *client.Client) error {
 		logrus.WithField("image", res.image).Debugf("pulling docker image")
-		reader, err := cli.ImagePull(context.Background(), res.image, types.ImagePullOptions{})
+		reader, err := cli.ImagePull(context.Background(), res.image, image.PullOptions{})
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func (d *dockerRunner) Run(ctx context.Context, options ...RunnerOption) (retErr
 
 		// attach to container
 		logrus.WithField("containerID", containerID).Debugf("attaching to docker container")
-		hr, err := cli.ContainerAttach(ctx, containerID, types.ContainerAttachOptions{
+		hr, err := cli.ContainerAttach(ctx, containerID, container.AttachOptions{
 			Stdout: true,
 			Stderr: true,
 			Stream: true,
@@ -173,12 +173,12 @@ func (d *dockerRunner) removeContainer(cli *client.Client, containerID string) e
 	// note: the context's deadline may be done, but we still want to wait
 	ctx := context.Background()
 	logrus.WithField("containerID", containerID).Debugf("removing docker container")
-	return cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
+	return cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 }
 
 func (d *dockerRunner) startContainer(ctx context.Context, cli *client.Client, containerID string) error {
 	logrus.WithField("containerID", containerID).Debugf("starting docker container")
-	return cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+	return cli.ContainerStart(ctx, containerID, container.StartOptions{})
 }
 
 func (d *dockerRunner) stopContainer(cli *client.Client, containerID string) error {
@@ -200,7 +200,7 @@ func (d *dockerRunner) copyFilesArchive(ctx context.Context, cli *client.Client,
 		containerID,
 		d.WorkDir(),
 		bytes.NewReader(buf.Bytes()),
-		types.CopyToContainerOptions{AllowOverwriteDirWithFile: true},
+		container.CopyToContainerOptions{AllowOverwriteDirWithFile: true},
 	)
 }
 
